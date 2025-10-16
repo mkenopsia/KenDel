@@ -15,6 +15,7 @@ create table if not exists shipping_management.t_shipping_order
     c_client_id        bigint      not null,
     c_shipment_address bigint      not null,
     c_delivery_address bigint      not null,
+    c_delivery_distance decimal     not null, -- todo добавить в атрибуты
     c_price            decimal     not null,
     c_creation_date    timestamptz not null, -- <-------------------- денормализация
     c_is_completed     bool        not null, -- <-------------------- денормализация // todo
@@ -162,6 +163,7 @@ create or replace function shipping_management.fn_assign_rate_to_cargo()
 $$
 declare
     res bigint;
+    price decimal;
 begin
     select c_rate_id
     into res
@@ -172,6 +174,8 @@ begin
       and new.c_weight <= c_max_weight
     order by c_max_width + c_max_height + c_max_length + c_max_weight
     limit 1;
+
+    select
 
     if res is null then
         raise exception 'Не найден подходящий тариф для груза: ширина=%, длина=%, высота=%, вес=%',
@@ -222,7 +226,33 @@ end;
 $$ language plpgsql;
 
 create trigger trg_validate_rate_before_update_cargo
-    before update of c_width, c_height, c_length, c_weight, c_rate_id
+    before update of c_width, c_height, c_length, c_weight, c_rate_id -- todo подумать
+    on shipping_management.t_cargo
+    for each row
+execute function shipping_management.fn_assign_or_validate_rate();
+
+create or replace function shipping_management.fn_assign_price_to_cargo()
+returns trigger as
+$$
+declare
+    price decimal;
+begin
+    select c_delivery_distance * c_multiplier
+    into price
+    from shipping_management.t_cargo
+    join shipping_management.t_shipping_order
+    on t_cargo.c_order_id = t_shipping_order.c_order_id
+    join shipping_management.t_rate
+    on t_shipping_order.c_rate_id = t_rate.c_rate_id
+    where c_cargo_id = new.c_cargo_id
+
+    new.c_price := price;
+    return new;
+end;
+$$ langual plpgsql
+
+create trigger trg_assign_price_after_create_cargo
+    before insert
     on shipping_management.t_cargo
     for each row
 execute function shipping_management.fn_assign_or_validate_rate();
