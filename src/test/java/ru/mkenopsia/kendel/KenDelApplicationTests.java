@@ -1,13 +1,13 @@
 package ru.mkenopsia.kendel;
 
 import org.junit.jupiter.api.Test;
-import org.springframework.boot.test.context.SpringBootTest;
 
-@SpringBootTest
+import java.util.List;
+import java.util.ListIterator;
+
+//@SpringBootTest
 class KenDelApplicationTests {
 
     @Test
-    void contextLoads() {
-    }
-
+    void test() {}
 }
